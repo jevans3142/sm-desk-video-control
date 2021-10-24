@@ -69,6 +69,6 @@ byte getPanelButtonState(byte panel) {
   // If more than one is pressed the highest numbered button will be returned
   // Returns 0-6 (where 0 is nothing pressed, 1-6 then are the buttons) 
   
-  return (1*digitalRead(buttonPin[panel][0]) + 2*digitalRead(buttonPin[panel][1]) + 4*digitalRead(buttonPin[panel][0]));
+  return (1*!digitalRead(buttonPin[panel][0]) + 2*!digitalRead(buttonPin[panel][1]) + 4*!digitalRead(buttonPin[panel][2]));
   
 }
