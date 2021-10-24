@@ -1,6 +1,6 @@
 #include "SMVideoController_panels.h"
 
-// This file contains functions to interact to
+// This file contains functions to interact with the control panels on the SM desk, including the IR button
 
 // Pin setup
 // =========
