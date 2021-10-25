@@ -1,6 +1,6 @@
 #include "SMVideoController_panels.h"
 
-// This file contains functions to interact with the control panels on the SM desk, including the IR button
+// This file contains functions to interact with the control panels on the SM desk, including the IR button and warning lights
 
 // Pin setup
 // =========
@@ -25,6 +25,11 @@ byte buttonPin[4][3] = {
 
 byte IRButtonPin = 26;
 byte IRLEDPin = 27;
+
+// Warning lights
+
+byte relayFailLED = 28; 
+byte ethernetFailLED = 29;
 
 // =========
 
@@ -71,4 +76,30 @@ byte getPanelButtonState(byte panel) {
   
   return (1*!digitalRead(buttonPin[panel][0]) + 2*!digitalRead(buttonPin[panel][1]) + 4*!digitalRead(buttonPin[panel][2]));
   
+}
+
+byte getIRButtonState() {
+  // Returns what the current state of the IR switch button is
+  // The physical button is momentary
+
+  return digitalRead(IRButtonPin);
+
+}
+
+void setIRButtonLED(byte state) {
+  // Sets the state of the LED within the IR switch button
+  
+  digitalWrite(IRLEDPin, state);
+}
+
+void setRelayFailLED(byte state) {
+   // Sets the state of the LED indicator for relay failure/out of sync
+  
+  digitalWrite(relayFailLED, state);
+}
+
+void setEthernetFailLED(byte state) {
+   // Sets the state of the LED indicator for Ethernet problems
+  
+  digitalWrite(ethernetFailLED, state);
 }
