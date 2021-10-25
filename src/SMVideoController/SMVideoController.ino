@@ -18,9 +18,16 @@ void setup() {
 
   // give the Ethernet PHY a second to initialize; seems to improve reliability
   delay(1000);
+
+  // TODO: Read in config from SD card
+  
 }
 
 void loop() {
+
+  // Keep our DHCP lease up to date
+  Ethernet.maintain();
+  
   if (! client.connected()) {
     Serial.println("Currently disconnected.");
     client.stop();
@@ -39,6 +46,8 @@ void loop() {
   }
   else {
     // do stuff here
+
+    // Check if any buttons are pressed, and if different to local state 
     
   }
 }
