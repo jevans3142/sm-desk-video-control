@@ -25,7 +25,7 @@ Items which can be configured:
 * MAC address of the Teensy
 
 ## Compilation
-The microcontroller used is a PJRC Teensy 4.1. As with most Teensy brand microcontrollers, code is compiled and uploaded via their modified Arduino IDE 'Teensyduino'. The version currently used is 1.8.16. Settings used for the board are the default as follows: 
+The microcontroller used is a PJRC Teensy 4.1. As with most Teensy brand microcontrollers, code is compiled and uploaded via their modified Arduino IDE 'Teensyduino'. The version currently used is Arduino 1.8.19 and Teensyduino 1.56. Settings used for the board are the default as follows: 
 * Board: Teensy 4.1
 * USB Type: Serial
 * CPU Speed: 600MHz
