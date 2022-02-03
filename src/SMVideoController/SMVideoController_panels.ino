@@ -9,27 +9,27 @@
 byte LEDPin[4][3] = {
   {  2,  3,  4},
   {  8,  9, 10},
-  { 14, 15, 16},
-  { 20, 21, 22}
+  { 15, 16, 17},
+  { 21, 22, 23}
 };
 
 // Button inputs (4 panels, each 3-bit input ie. 1/2/4)
 byte buttonPin[4][3] = {
   {  5,  6,  7},
-  { 11, 12, 13},
-  { 17, 18, 19},
-  { 23, 24, 25}
+  { 11, 12, 14}, // Pin 13 intentionally missed as it has a builtin LED on the devboard
+  { 18, 19, 20},
+  { 24, 25, 26}
 };
 
 // IR button
 
-byte IRButtonPin = 26;
-byte IRLEDPin = 27;
+byte IRButtonPin = 27;
+byte IRLEDPin = 28;
 
 // Warning lights
 
-byte relayFailLED = 28; 
-byte ethernetFailLED = 29;
+byte relayFailLED = 29; 
+byte ethernetFailLED = 30;
 
 // =========
 
