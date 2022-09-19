@@ -1,0 +1,5 @@
+#Ignore output build files
+/src/build
+
+#Ignore Mac DS store files
+.DS_Store
