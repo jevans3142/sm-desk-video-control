@@ -11,8 +11,11 @@
 #include "freertos/queue.h" 
 
 #include "main.h"
+#include "local_io.h"
+
 void app_main(void)
 {   
-   
+    //Set up local buttons, LEDs, relay outputs and warning lights
+    setup_local_io();
 }
 
