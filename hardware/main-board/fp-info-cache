@@ -1,4 +1,4 @@
-19803182358777636
+19804848296709287
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -56902,6 +56902,13 @@ Maple Mini
 0
 40
 40
+Module
+Olimex_ESP32_PoE_ISO
+
+
+0
+20
+20
 Module
 Onion_Omega2+
 https://onion.io/omega2/
