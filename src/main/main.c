@@ -13,57 +13,55 @@
 #include "main.h"
 #include "local_io.h"
 
+// Queue handles input to logic from button panels, messages received on ethernet, relay state changes
+// Avoids having to poll inputs from main logic (polling, denbouncing, buffering of buttons etc handled in local_io module)
 QueueHandle_t input_event_queue; 
 
 static const char *TAG = "main";
 
 static void input_logic_task(void)
 {
-    // Task which responds to button presses on the front panel and relay state changes
+    // Task which responds to button presses on the front panel, ethernet messages, and relay state changes
     // Uses a queue to respond when required
-
-    uint16_t incoming_msg;
 
     while(1)
     {   
-        incoming_msg = 0;
+        struct Queued_Input_Message_Struct incoming_msg;
         if (xQueueReceive(input_event_queue, &incoming_msg, (TickType_t) portMAX_DELAY) == pdTRUE)
         {
             // Message recieved from queue
-            ESP_LOGI(TAG,"Processing message in input logic:%i",incoming_msg);
+            ESP_LOGI(TAG,"Processing message in input logic, type:%i",incoming_msg.type);
 
-            uint8_t msg_part1 = (uint8_t) incoming_msg;
-            uint8_t msg_part2 = (uint8_t) (incoming_msg >> 8);
-
-            switch (msg_part1)
+            switch (incoming_msg.type)
             {
-            case IO_MSG_PANEL_1:
-                // First button panel
+            case IN_MSG_TYP_ROUTING:
+                // Routing input from button panel - send command to switcher
+                
+                // TODO
+
+                break;
+            case IN_MSG_TYP_IR_TOGGLE:
+                // IR Button - send command macro to switcher 
+
+                // TODO
+
+                break;
+            case IN_MSG_TYP_RELAY_STATE:
+                // IR Flood relay - process state change
+
+                // TODO
                 
                 break;
-            case IO_MSG_PANEL_2:
-                // Second button panel
-                
-                break;
-            case IO_MSG_PANEL_3:
-                // Third button panel
-                
-                break;
-            case IO_MSG_PANEL_4:
-                // Fourth button panel
-                
-                break;
-            case IO_MSG_IR_BUTTON:
-                // IR Button
-                
+            case IN_MSG_TYP_ETHERNET:
+                // Incoming text message on ethenet
+
+                // TODO
+
                 break;
             default:
-                ESP_LOGW(TAG,"Input message unknown:%i",incoming_msg);
+                ESP_LOGW(TAG,"Input message unknown:%i",incoming_msg.type);
                 break;
             }
-
-            // Press of router button: send to switcher
-            // Press of IR button: send command macro to switcher
             
         }
     }
@@ -72,8 +70,8 @@ static void input_logic_task(void)
 
 void app_main(void)
 {   
-    // Set up input event queue - note that 16 bit int used to get two 8-bit parts to message in upper and lower 
-    input_event_queue = xQueueCreate (32, sizeof(uint16_t)); 
+    // Set up input event queue
+    input_event_queue = xQueueCreate (32, sizeof(struct Queued_Input_Message_Struct)); 
     if (input_event_queue == NULL)
     {
         ESP_LOGE(TAG,"Unable to create input event queue, rebooting");

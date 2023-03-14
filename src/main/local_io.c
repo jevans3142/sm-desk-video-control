@@ -9,6 +9,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
+#include "main.h"
 #include "local_io.h"
 #include "pindefs.h"
 
@@ -92,7 +93,7 @@ static void refresh_outputs(void)
         return;
     }
 
-    if (xSemaphoreTake(output_state_buffer_mutex, (TickType_t)10) == pdTRUE)
+    if (xSemaphoreTake(output_state_buffer_mutex, (TickType_t) 10) == pdTRUE)
     {
         if (output_state_buffer_changed_flag == 0)
         {
@@ -123,7 +124,7 @@ static void refresh_outputs(void)
     expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_GP1, out_byte_B_GP1);
 }
 
-static void button_debounce(uint8_t *raw_input, uint8_t *state, uint8_t *counter, uint8_t message)
+static void button_debounce(uint8_t *raw_input, uint8_t *state, uint8_t *counter, uint8_t message_type, uint8_t panel_num)
 {
     if (*raw_input == 0)
     {
@@ -131,17 +132,21 @@ static void button_debounce(uint8_t *raw_input, uint8_t *state, uint8_t *counter
         if (*state != 0)
         {
             // Button has been pressed and released, send message to main logic
-            // 16 bit message used - lower 8 bits for main message indicating panel 1/2, ir button etc
-            // higher 8 bits used for the 'state' to pass the button pressed on each panel
-
-            uint16_t complete_message = ((uint16_t)message) | ((uint16_t)*state << 8);
-            if (xQueueSend(*input_event_queue_ptr, (void *)&complete_message, 0) == pdTRUE)
+            struct Queued_Input_Message_Struct new_message;
+            new_message.type = message_type;
+            if (message_type == IN_MSG_TYP_ROUTING)
             {
-                ESP_LOGI(TAG, "Sending message from button debounce:%i", complete_message);
+                new_message.panel = panel_num;
+                new_message.panel_button = *state;
+            }
+
+            if (xQueueSend(*input_event_queue_ptr, (void *)&new_message, 0) == pdTRUE)
+            {
+                ESP_LOGI(TAG, "Sending message from button debounce: %i,%i,%i", new_message.type, new_message.panel, new_message.panel_button);
             }
             else
             {
-                ESP_LOGW(TAG, "Sending message from button debounce failed due to queue full? - %i", complete_message);
+                ESP_LOGW(TAG, "Sending message from button debounce failed due to queue full? - %i,%i,%i", new_message.type, new_message.panel, new_message.panel_button);
             }
             *state = 0;
         }
@@ -186,11 +191,11 @@ static void refresh_inputs(void)
         input_state_buffer.ir_button = 1 * ((in_byte_B_GP1 & 32) == 0);    // Inverted due to extern. pullup
 
         // Debounce raw inputs into debounced state for buttons, trigger events if required
-        button_debounce(&input_state_buffer.button_panel[0], &input_debounced_buffer.button_panel[0], &input_state_counts.button_panel[0], IO_MSG_PANEL_1);
-        button_debounce(&input_state_buffer.button_panel[1], &input_debounced_buffer.button_panel[1], &input_state_counts.button_panel[1], IO_MSG_PANEL_2);
-        button_debounce(&input_state_buffer.button_panel[2], &input_debounced_buffer.button_panel[2], &input_state_counts.button_panel[2], IO_MSG_PANEL_3);
-        button_debounce(&input_state_buffer.button_panel[3], &input_debounced_buffer.button_panel[3], &input_state_counts.button_panel[3], IO_MSG_PANEL_4);
-        button_debounce(&input_state_buffer.ir_button, &input_debounced_buffer.ir_button, &input_state_counts.ir_button, IO_MSG_IR_BUTTON);
+        button_debounce(&input_state_buffer.button_panel[0], &input_debounced_buffer.button_panel[0], &input_state_counts.button_panel[0], IN_MSG_TYP_ROUTING, 0);
+        button_debounce(&input_state_buffer.button_panel[1], &input_debounced_buffer.button_panel[1], &input_state_counts.button_panel[1], IN_MSG_TYP_ROUTING, 1);
+        button_debounce(&input_state_buffer.button_panel[2], &input_debounced_buffer.button_panel[2], &input_state_counts.button_panel[2], IN_MSG_TYP_ROUTING, 2);
+        button_debounce(&input_state_buffer.button_panel[3], &input_debounced_buffer.button_panel[3], &input_state_counts.button_panel[3], IN_MSG_TYP_ROUTING, 3);
+        button_debounce(&input_state_buffer.ir_button, &input_debounced_buffer.ir_button, &input_state_counts.ir_button, IN_MSG_TYP_IR_TOGGLE, 0);
 
         xSemaphoreGive(input_state_buffer_mutex);
         ESP_LOGD(TAG, "Input bytes at refresh inputs:%#X, %#X", in_byte_B_GP0, in_byte_B_GP1);
@@ -311,6 +316,7 @@ uint8_t get_button_panel_state(uint8_t panel)
     // Limit check
     if (panel > 3)
     {
+        ESP_LOGE(TAG, "get_button_panel state called with invalid panel id of %i",panel);
         panel = 3;
     }
     char s[17];

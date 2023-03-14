@@ -44,15 +44,6 @@ struct Output_Buffer_Struct {
 #define INPUT_DEBOUNCE_LOOP_COUNT 4
 #define REFRESH_LOOP_TICKS 10
 
-// Input/button message definitions
-
-# define IO_MSG_PANEL_1 1
-# define IO_MSG_PANEL_2 2
-# define IO_MSG_PANEL_3 3
-# define IO_MSG_PANEL_4 4
-# define IO_MSG_IR_BUTTON 5
-
-
 void setup_local_io(QueueHandle_t* input_queue);
 
 uint8_t get_button_panel_state(u_int8_t panel);
