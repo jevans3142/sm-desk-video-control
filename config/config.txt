@@ -1,0 +1,51 @@
+// SM Desk Video switcher config file
+// All lines starting // are regarded as comments and are ignored
+// Variable names and file format must NOT be changed
+// Where multiple numbers are allowed, separate with commas
+
+// Routing panel sources/destinations
+// Controls which source is routed to destination for each button
+// Also controls which output way on the router is used for each set of buttons
+// Allowed values for sources: 1-40 = for sources 1-40 on router, 99 = Show relay main/IR switched
+// Allowed values for destinations: 1-40 = destinations on router
+// ==================
+
+// Button panel 1 (main screen left)
+routing_panel_sources[0] = 99,3,4,8,7,12
+routing_panel_destinations[0] = 1
+
+// Button panel 2 (main screen right)
+routing_panel_sources[1] = 99,3,5,8,7,11
+routing_panel_destinations[1] = 2
+
+// Button panel 3 (aux screen left)
+routing_panel_sources[2] = 99,3,4,8,7,9
+routing_panel_destinations[2] = 3
+
+// Button panel 4 (aux screen right)
+routing_panel_sources[3] = 99,3,5,8,7,10
+routing_panel_destinations[3] = 4
+
+
+// Show relay sources
+// Controls which sources are the 'main' and 'ir' cameras for the auto-switched outputs
+// Allowed values: 1-40 for sources 1-40 on router
+// ===================
+show_relay_main_source = 1
+show_relay_ir_source = 2 
+
+
+// Main/IR switched outputs
+// Controls which destinations are affected by the main IR button on the SM des
+// ie. main/IR show relay outputs on the router
+// NB: Should not include the SM desk screen outputs above - only other screens
+// Allowed values: list of destionations 1-40
+// ==================
+show_relay_switched_destination_flags = 25,26,27,28,29,30,31,32
+
+
+// Router properties
+// IPv4 Address and port
+router_ip = 169.254.237.53
+router_port = 9900
+

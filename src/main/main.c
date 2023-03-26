@@ -12,10 +12,14 @@
 
 #include "main.h"
 #include "local_io.h"
+#include "storage.h"
 
 // Queue handles input to logic from button panels, messages received on ethernet, relay state changes
 // Avoids having to poll inputs from main logic (polling, denbouncing, buffering of buttons etc handled in local_io module)
 QueueHandle_t input_event_queue; 
+
+// Holds the various settings
+struct Settings_Struct settings;
 
 static const char *TAG = "main";
 
@@ -50,7 +54,7 @@ static void input_logic_task(void)
                 // IR Flood relay - process state change
 
                 // TODO
-                
+
                 break;
             case IN_MSG_TYP_ETHERNET:
                 // Incoming text message on ethenet
@@ -77,6 +81,9 @@ void app_main(void)
         ESP_LOGE(TAG,"Unable to create input event queue, rebooting");
         esp_restart();
     }
+
+    // Retrive settings from SD card 
+    settings = get_settings();
 
     //Set up local buttons, LEDs, relay outputs and warning lights
     setup_local_io(&input_event_queue);
