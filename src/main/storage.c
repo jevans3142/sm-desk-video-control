@@ -313,7 +313,7 @@ struct Settings_Struct get_settings(void)
     }
 
     base_settings.router_ip = 2852056373; //169.254.237.53
-    base_settings.router_port = 9900;
+    base_settings.router_port = 9990;
 
     // Get settings from SD card
     esp_err_t ret = init_sd_card();

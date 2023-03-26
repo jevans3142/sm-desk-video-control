@@ -12,6 +12,7 @@
 
 #include "main.h"
 #include "local_io.h"
+#include "ethernet.h"
 #include "storage.h"
 
 // Queue handles input to logic from button panels, messages received on ethernet, relay state changes
@@ -40,8 +41,13 @@ static void input_logic_task(void)
             {
             case IN_MSG_TYP_ROUTING:
                 // Routing input from button panel - send command to switcher
-                
-                // TODO
+                ESP_LOGI(TAG,"Sending video routing message");
+                uint8_t input = settings.routing_panel_sources[incoming_msg.panel][incoming_msg.panel_button];
+                uint8_t output = settings.routing_panel_destinations[incoming_msg.panel];
+
+                // TODO: need to capture any '99 - show relay' messages here
+
+                send_video_route(input, output);
 
                 break;
             case IN_MSG_TYP_IR_TOGGLE:
@@ -87,5 +93,8 @@ void app_main(void)
 
     //Set up local buttons, LEDs, relay outputs and warning lights
     setup_local_io(&input_event_queue);
+    // Set up ethernet stack and communication with video router
+    setup_ethernet(settings.router_ip,settings.router_port);
 
-    xTaskCreate( (TaskFunction_t) input_logic_task, "input_logic_task", 2048, NULL, 5, NULL);}
+    xTaskCreate( (TaskFunction_t) input_logic_task, "input_logic_task", 2048, NULL, 5, NULL);
+}
