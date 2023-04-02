@@ -18,6 +18,7 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 
+#include "main.h"
 #include "ethernet.h"
 #include "local_io.h"
 #include "pindefs.h"
@@ -27,6 +28,12 @@ static const char *TAG = "ethernet";
 
 // Output message queue - added to from logic in main.c
 QueueHandle_t ethernet_message_output_queue; 
+
+// Input message queue - added to here from main TCP loop
+QueueHandle_t ethernet_message_input_queue; 
+
+// Input message queue handle pointer - passed in from main module
+QueueHandle_t *input_event_queue_ptr;
 
 // IP and port of router that we're controlling - set in setup function
 uint32_t router_ip;
@@ -49,7 +56,7 @@ static void ethernet_warning_off(void)
     set_ethernet_fail_led(0);
 }
 
-// Event handler for Ethernet events 
+// Event handler for general Ethernet events 
 static void ethernet_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     uint8_t mac_address[6] = {0}; // TODO
@@ -92,7 +99,7 @@ static void ethernet_event_handler(void* arg, esp_event_base_t event_base, int32
 
 static void tcp_client_loop(void)
 {
-    char rx_buffer[4096];
+    char rx_buffer[ETH_TCP_TEXT_RECV_BUFFER_SIZE];
     int addr_family = 0;
     int ip_protocol = 0;
 
@@ -205,7 +212,14 @@ static void tcp_client_loop(void)
                 ESP_LOGI(TAG, "Received %d bytes:", len);
                 ESP_LOGI(TAG, "%s", rx_buffer);
                 ethernet_warning_off();
-                // TODO - how do we stick these together into messages and process...
+                if (xQueueSend(ethernet_message_input_queue, (void *)&rx_buffer, 1) == pdTRUE)
+                {
+                    ESP_LOGI(TAG, "Sending message from recv to process logic");
+                }
+                else
+                {
+                    ESP_LOGW(TAG, "Sending message from recv failed due to queue full?");
+                }
             }
 
             vTaskDelay(10 / portTICK_PERIOD_MS); // Yield for everything else 
@@ -223,6 +237,103 @@ static void tcp_client_loop(void)
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Prevents hammering
     }
 }
+
+// Task that takes incoming TCP message fragments from router and sticks them together
+// Uses a state machine to filter to the messages we want and ignore all others
+static void tcp_recv_task(void)
+{
+    uint8_t state = ETH_TCP_RECV_STATE_UNKNOWN; // See header file for state machine definitions
+
+    while(1)
+    {   
+        char incoming_msg[ETH_TCP_TEXT_RECV_BUFFER_SIZE];
+        if (xQueueReceive(ethernet_message_input_queue, &incoming_msg, (TickType_t) portMAX_DELAY) == pdTRUE)
+        {
+            // Message recieved from queue
+            ESP_LOGI(TAG,"Processing incoming text buffer in TCP logic");
+
+            // Go through string to break up lines preserving blank lines
+
+            uint16_t line_count = 0;
+            char *msg_ptr = incoming_msg;  
+
+            while (*msg_ptr != '\0') 
+            {
+                if (*msg_ptr == '\n') 
+                {   
+                    *msg_ptr = '\0';  // Replace newline with null terminator to break up strings
+                    line_count++;
+                }
+                msg_ptr++;
+            }
+
+            line_count++;
+            ESP_LOGI(TAG,"Line count - %u",line_count);
+
+            msg_ptr = incoming_msg;
+
+            for (uint16_t i = 0; i < line_count; i++) 
+            {
+                u_int16_t ptr_length = strlen(msg_ptr); // Need to store the length becase we might insert extra null terminators
+
+                switch (state)
+                {
+                case ETH_TCP_RECV_STATE_UNKNOWN:
+                    // Don't know what message we're currently getting; wait for blank line 
+                    if (strlen(msg_ptr) == 0)
+                    {
+                        // Blank line, now wait for the start of a block
+                        state = ETH_TCP_RECV_STATE_WAIT;
+                        break;
+                    } 
+                    break;
+                case ETH_TCP_RECV_STATE_WAIT:
+                    // Gone past a newline, waiting for the start of a block
+                    if (strncmp(msg_ptr, "VIDEO OUTPUT ROUTING:", strlen("VIDEO OUTPUT ROUTING:")) == 0)
+                    {
+                        state = ETH_TCP_RECV_STATE_IN_UPDATE;
+                        break;
+                    } 
+                    break;
+                case ETH_TCP_RECV_STATE_IN_UPDATE:
+                    // Gone past the start of a VIDEO OUTPUT ROUTING block
+                    if (strlen(msg_ptr) == 0)
+                    {
+                        // Blank line, now wait for the start of a block
+                        state = ETH_TCP_RECV_STATE_WAIT;
+                        break;
+                    }
+                    // If not blank, should be a pair of numbers, so now split by spaces 
+                    char *spacesplit;
+                    spacesplit = strtok(msg_ptr, " "); 
+                    uint8_t output = (uint8_t) atoi(spacesplit);
+                    spacesplit = strtok(NULL, " "); 
+                    uint8_t input = (uint8_t) atoi(spacesplit);
+                    ESP_LOGI(TAG, "Route confirm received! Output: %u Input %u", output, input);
+
+                    struct Queued_Input_Message_Struct new_message;
+                    new_message.type = IN_MSG_TYP_ETHERNET;
+                    new_message.input = input;
+                    new_message.output = output;
+
+                    if (xQueueSend(*input_event_queue_ptr, (void *)&new_message, 0) == pdTRUE)
+                    {
+                        ESP_LOGI(TAG, "Sending message from route confirm %i,%i,%i", new_message.type, new_message.output, new_message.input);
+                    }
+                    else
+                    {
+                        ESP_LOGW(TAG, "Sending message from route confirm failed due to queue full? - %i,%i,%i", new_message.type, new_message.output, new_message.input);
+                    }
+
+                    break;
+                } 
+
+                msg_ptr = msg_ptr + ptr_length + 1;
+            }
+        }
+    }
+}
+
 
 // Event handler for IP_EVENT_ETH_GOT_IP
 static void got_ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
@@ -246,18 +357,30 @@ static void got_ip_event_handler(void* arg, esp_event_base_t event_base, int32_t
     xTaskCreate( (TaskFunction_t) tcp_client_loop, "tcp_client_loop", 8192, NULL, 5, &tcp_client_task_handle);
 }
 
-void setup_ethernet(uint32_t ip, uint32_t port)
+void setup_ethernet(uint32_t ip, uint32_t port, QueueHandle_t* input_queue)
 {
     router_ip = ip;
     router_port = port;
 
-    // Set up input event queue - note that 16 bit int used to get two 8-bit parts to message in upper and lower 
+    // Set up output event queue
     ethernet_message_output_queue = xQueueCreate (64, sizeof(struct Queued_Ethernet_Message_Struct)); 
     if (ethernet_message_output_queue == NULL)
     {
         ESP_LOGE(TAG,"Unable to create ethernet output  message queue, rebooting");
         esp_restart();
     }
+
+    // Set up input message queue
+    ethernet_message_input_queue = xQueueCreate (ETH_TCP_TEXT_RECV_BUFFER_NUM, ETH_TCP_TEXT_RECV_BUFFER_SIZE * (sizeof(char))); 
+    if (ethernet_message_input_queue == NULL)
+    {
+        ESP_LOGE(TAG,"Unable to create ethernet input message queue, rebooting");
+        esp_restart();
+    }
+    xTaskCreate( (TaskFunction_t) tcp_recv_task, "tcp_recv_task", 4096, NULL, 5, NULL);
+
+    // Set up local pointers to the event queue in the main logic
+    input_event_queue_ptr = input_queue;
 
     // Initialize TCP/IP network interface
     ESP_ERROR_CHECK(esp_netif_init());

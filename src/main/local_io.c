@@ -137,7 +137,7 @@ static void button_debounce(uint8_t *raw_input, uint8_t *state, uint8_t *counter
             if (message_type == IN_MSG_TYP_ROUTING)
             {
                 new_message.panel = panel_num;
-                new_message.panel_button = *state;
+                new_message.panel_button = *state - 1; // Note change from physical button 1-6 to array index 0-5 for reference to settings struct in main logic
             }
 
             if (xQueueSend(*input_event_queue_ptr, (void *)&new_message, 0) == pdTRUE)

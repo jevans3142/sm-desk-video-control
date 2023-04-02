@@ -20,6 +20,7 @@
 QueueHandle_t input_event_queue; 
 
 // Holds the various settings
+// Note that route info is held in 'physical' 1-40 numbering not the 0-39 form - decrements are applied below when commands are sent
 struct Settings_Struct settings;
 
 static const char *TAG = "main";
@@ -47,7 +48,9 @@ static void input_logic_task(void)
 
                 // TODO: need to capture any '99 - show relay' messages here
 
-                send_video_route(input, output);
+
+                // Decrement in/outs by 1 to go from physical 1-40 numbering to zero index 
+                send_video_route(input - 1, output - 1);
 
                 break;
             case IN_MSG_TYP_IR_TOGGLE:
@@ -64,9 +67,35 @@ static void input_logic_task(void)
                 break;
             case IN_MSG_TYP_ETHERNET:
                 // Incoming text message on ethenet
+                ESP_LOGI(TAG,"Processing routing confirm message");
+                // Work out if the incoming routing confirm applies to any of our screens
+                u_int8_t found_panel = 255; // Hacky hack hack - use 255 as a 'not found' flag
+                u_int8_t found_button = 0;
+                // Increment in/outs by 1 to go from zero index to physical 1-40 numbering 
+                for (uint8_t panel = 0; panel<4; panel++)
+                {
+                    if ((incoming_msg.output + 1) == settings.routing_panel_destinations[panel])
+                    {
+                        // So it is one of our screens
+                        found_panel = panel;
+                        for (uint8_t button = 0; button<6; button++)
+                        {
+                            if ((incoming_msg.input + 1) == settings.routing_panel_sources[panel][button])
+                            {
+                                // and it's one of our outputs 
+                                found_button = button + 1; // Got to convert back from zero index to physical button, because 0 = no LED lit
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
 
-                // TODO
-
+                if (found_panel != 255)
+                {
+                    set_button_led_state(found_panel,found_button);
+                }
+                
                 break;
             default:
                 ESP_LOGW(TAG,"Input message unknown:%i",incoming_msg.type);
@@ -94,7 +123,7 @@ void app_main(void)
     //Set up local buttons, LEDs, relay outputs and warning lights
     setup_local_io(&input_event_queue);
     // Set up ethernet stack and communication with video router
-    setup_ethernet(settings.router_ip,settings.router_port);
+    setup_ethernet(settings.router_ip, settings.router_port, &input_event_queue);
 
     xTaskCreate( (TaskFunction_t) input_logic_task, "input_logic_task", 2048, NULL, 5, NULL);
 }
