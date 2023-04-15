@@ -59,7 +59,7 @@ static void ethernet_warning_off(void)
 // Event handler for general Ethernet events 
 static void ethernet_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    uint8_t mac_address[6] = {0}; // TODO
+    uint8_t mac_address[6] = {0}; // Use default MAC from efuses on esp32
     esp_eth_handle_t ethernet_handle = *(esp_eth_handle_t *)event_data;
 
     switch (event_id) 

@@ -312,7 +312,7 @@ struct Settings_Struct get_settings(void)
         base_settings.show_relay_switched_destination_flags[dest] = 0;
     }
 
-    base_settings.router_ip = 2852056373; //169.254.237.53
+    base_settings.router_ip = 3232238377; //192.168.11.41
     base_settings.router_port = 9990;
 
     // Get settings from SD card
