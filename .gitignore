@@ -1,5 +1,8 @@
 #Ignore output build files
 /src/build
 
+#Ignore backup files from kicad
+*-backups
+
 #Ignore Mac DS store files
 .DS_Store
