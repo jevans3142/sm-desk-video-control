@@ -12,6 +12,7 @@
 #include "main.h"
 #include "local_io.h"
 #include "pindefs.h"
+#include "ethernet.h"
 
 // Logging tag
 static const char *TAG = "local_io";
@@ -31,6 +32,8 @@ struct Input_Buffer_Struct input_state_buffer;     // Raw state of inputs from I
 struct Input_Buffer_Struct input_state_counts;     // Counters for debouncing
 struct Input_Buffer_Struct input_debounced_buffer; // Debounced state
 
+uint8_t board_live_i2c_setup; // Has I2C been setup on this power supply activation
+
 // I2C commmunication
 // =============================================================================
 
@@ -48,6 +51,11 @@ static esp_err_t i2c_init(void)
     conf.clk_flags = 0;
     i2c_param_config(i2c_master_port, &conf);
     return i2c_driver_install(i2c_master_port, conf.mode, I2C_RX_BUFFER, I2C_TX_BUFFER, 0);
+}
+
+static esp_err_t i2c_deinit(void)
+{
+    return i2c_driver_delete(I2C_NUM);
 }
 
 static void expander_write_command(uint8_t address, uint8_t module_register, uint8_t data)
@@ -76,8 +84,25 @@ static void expander_read_command(uint8_t address, uint8_t module_register, uint
     i2c_cmd_link_delete(cmd);
 }
 
+static void expander_setup(void)
+{
+    // Module A - All outputs (Direction register all 0s)
+    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_IODIR0, 0x00);
+    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_IODIR1, 0x00);
+    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_GP0, 0x00);
+    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_GP1, 0x00);
+
+    // Module B - 14 inputs, last 2 are outputs (Direction register 14 1s 2 0s)
+    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_IODIR0, 0xFF);
+    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_IODIR1, 0x3F);
+    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_GP0, 0x00);
+    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_GP1, 0x00);
+}
+
 // Main tasks: output refresh and input debouncing
 // =============================================================================
+
+
 
 static void refresh_outputs(void)
 {
@@ -211,9 +236,41 @@ static void input_poll_task(void)
 {
     while (1)
     {
-        refresh_inputs();
-        refresh_outputs();
-        vTaskDelay(REFRESH_LOOP_TICKS / portTICK_RATE_MS);
+        if (gpio_get_level(PIN_BOARD_LIVE))
+        {
+            // SM Desk 12V PSU is live
+            if (board_live_i2c_setup)
+            {
+                // We have already set up the expanders, so do main loop
+                refresh_inputs();
+                refresh_outputs();
+                vTaskDelay(REFRESH_LOOP_TICKS / portTICK_RATE_MS);
+            } else {
+                // But we haven't set up the expanders yet 
+                ESP_LOGI(TAG, "Setting up I2C expanders");
+                vTaskDelay(PSU_ON_WAIT_TICKS / portTICK_RATE_MS); // Hold to allow PSU to come up properly
+                i2c_init();
+                expander_setup();
+                board_live_i2c_setup = 1;
+                // Need to flag that outputs need to be refreshed
+                if (xSemaphoreTake(output_state_buffer_mutex, (TickType_t)10) == pdTRUE)
+                {
+                    output_state_buffer_changed_flag = 1;
+                    xSemaphoreGive(output_state_buffer_mutex);
+                }
+                request_route_dump(); // Ask ethernet module to query the router to check the current output state as we may have been off for a while
+            }
+        } else {
+            ESP_LOGW(TAG, "PSU not live!");
+            // SM Desk 12V PSU is NOT live - pause and do nothing
+            if (board_live_i2c_setup)
+            {
+                i2c_deinit();
+                board_live_i2c_setup = 0;
+            }
+            
+            vTaskDelay(REFRESH_LOOP_TICKS / portTICK_RATE_MS);
+        }
     }
 }
 
@@ -276,22 +333,7 @@ void setup_local_io(QueueHandle_t *input_queue)
     output_state_buffer_mutex = xSemaphoreCreateMutex();
     input_state_buffer_mutex = xSemaphoreCreateMutex();
 
-    // Sets up IO expanders, sets default state of outputs
-    ESP_ERROR_CHECK(i2c_init());
-
-    // Module A - All outputs (Direction register all 0s)
-    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_IODIR0, 0x00);
-    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_IODIR1, 0x00);
-    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_GP0, 0x00);
-    expander_write_command(I2C_MODULE_A_ADDRESS, I2C_MODULE_REGISTER_GP1, 0x00);
-
-    // Module B - 14 inputs, last 2 are outputs (Direction register 14 1s 2 0s)
-    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_IODIR0, 0xFF);
-    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_IODIR1, 0x3F);
-    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_GP0, 0x00);
-    expander_write_command(I2C_MODULE_B_ADDRESS, I2C_MODULE_REGISTER_GP1, 0x00);
-
-    // Set up 'board live' input from standard pin - sees if SM desk is active
+    // Set up 'board live' input from standard pin - sees if SM desk PSU is active
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_INPUT;
@@ -299,6 +341,8 @@ void setup_local_io(QueueHandle_t *input_queue)
     io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
+
+    board_live_i2c_setup = 0;
 
     // Set up local pointers to the event queue in the main logic
     input_event_queue_ptr = input_queue;
@@ -360,15 +404,30 @@ uint8_t get_ir_relay_state(void)
     return buffer_single_read(&input_state_buffer.ir_relay_aux, "IR relay aux");
 }
 
-void toggle_ir_relay_state(void)
+static void ir_relay_set_task(uint8_t value)
+{
+
+    for (uint8_t attempts = 3; attempts > 0; attempts--) 
+    {
+
+        if (get_ir_relay_state() == value)
+        {
+            break;
+        }
+
+        buffer_single_write(&output_state_buffer.ir_relay, 1, "IR Relay coil");
+        vTaskDelay(500 / portTICK_RATE_MS);
+        buffer_single_write(&output_state_buffer.ir_relay, 0, "IR Relay coil");
+        vTaskDelay(500 / portTICK_RATE_MS);
+    }
+
+    vTaskDelete(NULL);
+}
+
+void set_ir_relay_state(uint8_t value)
 {
     // Starts a timed task to toggle the bistable relay in the patchbay
-    // TODO
-    buffer_single_write(&output_state_buffer.ir_relay, 1, "IR Relay coil");
-    vTaskDelay(500 / portTICK_RATE_MS);
-    // TODO - this write must happen to turn the coil off but not assured by mutex if failed
-    // Build in a 'try again' loop? Checks every so often until it's done?
-    buffer_single_write(&output_state_buffer.ir_relay, 0, "IR Relay coil");
+    xTaskCreate( (TaskFunction_t) ir_relay_set_task, "ir_relay_set_task", 2048, value, 5, NULL);
 }
 
 // Warning lights
@@ -399,10 +458,4 @@ void set_usb_enable_b(uint8_t value)
 {
     // Sets the state the USB passthrough enable B
     buffer_single_write(&output_state_buffer.usb_enable_b, value, "USB enable B");
-}
-
-uint8_t get_board_live_state(void)
-{
-    // Returns state of PCB power supply
-    return buffer_single_read(&input_debounced_buffer.board_live, "Board live");
 }

@@ -27,7 +27,6 @@ struct Input_Buffer_Struct {
     uint8_t button_panel[4]; // Four panels - 0 is unpressed 1-6 pressed
     uint8_t ir_button; // 0 is unpressed 1 pressed
     uint8_t ir_relay_aux; // 0 is off 1 on - aux contacts on relay
-    uint8_t board_live; // 0 is off 1 on
 };
 
 struct Output_Buffer_Struct {
@@ -41,8 +40,11 @@ struct Output_Buffer_Struct {
 };
 
 // Debounce properties
-#define INPUT_DEBOUNCE_LOOP_COUNT 4
+#define INPUT_DEBOUNCE_LOOP_COUNT 3
 #define REFRESH_LOOP_TICKS 10
+
+// How long do we wait when the PSU comes up
+#define PSU_ON_WAIT_TICKS 100
 
 void setup_local_io(QueueHandle_t* input_queue);
 
@@ -53,14 +55,12 @@ uint8_t get_ir_button_state(void);
 void set_ir_button_led(uint8_t value);
 
 uint8_t get_ir_relay_state(void);
-void toggle_ir_relay_state(void);
+void set_ir_relay_state(uint8_t value);
 
 void set_ethernet_fail_led(uint8_t value);
 void set_relay_fail_led(uint8_t value);
 
 void set_usb_enable_a(uint8_t value);
 void set_usb_enable_b(uint8_t value);
-
-uint8_t get_board_live_state(void);
 
 #endif  

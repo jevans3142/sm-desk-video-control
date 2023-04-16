@@ -20,4 +20,12 @@ struct Queued_Input_Message_Struct {
 #define IN_MSG_TYP_RELAY_STATE 2
 #define IN_MSG_TYP_ETHERNET 3
 
+
+// Definitions of Main/IR state for show relay
+#define RELAY_STATE_MAIN 0
+#define RELAY_STATE_IR 1
+
+// How long to leave between each IR changeover in ticks
+#define RELAY_CHANGEOVER_RIPPLE_INTERVAL 3
+
 #endif

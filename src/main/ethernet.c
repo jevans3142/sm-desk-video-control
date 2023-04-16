@@ -162,6 +162,10 @@ static void tcp_client_loop(void)
                     snprintf(buffer, sizeof(buffer), "VIDEO OUTPUT ROUTING:\n%d %d\n\n", incoming_message.output, incoming_message.input);
                     break;
                 
+                case ETH_MSG_TYP_ROUTEDUMP:
+                    snprintf(buffer, sizeof(buffer), "VIDEO OUTPUT ROUTING:\n\n");
+                    break;
+
                 default:
                     ESP_LOGE(TAG, "Ethernet message type not recognised in queue: %d", incoming_message.type);
                     break;
@@ -440,6 +444,27 @@ void send_video_route(uint8_t input, uint8_t output)
     else
     {
         ESP_LOGW(TAG, "Putting message into ethernet output queue failed due to queue full? - %i,%i,%i", new_message.type, new_message.input, new_message.output);
+        ESP_LOGW(TAG, "%i messages in queue",uxQueueMessagesWaiting(ethernet_message_output_queue));
+    }
+
+
+}
+
+void request_route_dump()
+{
+    // Request a full dump of all the video routes as a status update
+    struct Queued_Ethernet_Message_Struct new_message;
+    
+    new_message.type = ETH_MSG_TYP_ROUTEDUMP;
+
+    if (xQueueSend(ethernet_message_output_queue, (void *)&new_message, 0) == pdTRUE)
+    {
+        ESP_LOGI(TAG, "Putting message into ethernet output queue %i", new_message.type);
+        ESP_LOGI(TAG, "%i messages in queue",uxQueueMessagesWaiting(ethernet_message_output_queue));
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Putting message into ethernet output queue failed due to queue full? - %i", new_message.type);
         ESP_LOGW(TAG, "%i messages in queue",uxQueueMessagesWaiting(ethernet_message_output_queue));
     }
 

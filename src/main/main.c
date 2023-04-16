@@ -23,6 +23,12 @@ QueueHandle_t input_event_queue;
 // Note that route info is held in 'physical' 1-40 numbering not the 0-39 form - decrements are applied below when commands are sent
 struct Settings_Struct settings;
 
+// Current main/IR state for show relay
+// Held here rather than on switcher, because of the complexity of the multiple outputs switched and the possiblity they get out of sync
+u_int8_t relay_ir_state = RELAY_STATE_MAIN;
+// This holds a 'cache' state of if a button panel is currently viewing show relay and therefore if we need to do a main/IR switch for it
+u_int8_t cache_panel_relay_states[4];
+
 static const char *TAG = "main";
 
 static void input_logic_task(void)
@@ -30,6 +36,13 @@ static void input_logic_task(void)
     // Task which responds to button presses on the front panel, ethernet messages, and relay state changes
     // Uses a queue to respond when required
 
+    for (uint8_t panel = 0; panel<4; panel++)
+    {   
+        cache_panel_relay_states[panel] = 0;
+    }
+
+    set_ir_relay_state(RELAY_STATE_MAIN);
+    
     while(1)
     {   
         struct Queued_Input_Message_Struct incoming_msg;
@@ -46,8 +59,19 @@ static void input_logic_task(void)
                 uint8_t input = settings.routing_panel_sources[incoming_msg.panel][incoming_msg.panel_button];
                 uint8_t output = settings.routing_panel_destinations[incoming_msg.panel];
 
-                // TODO: need to capture any '99 - show relay' messages here
-
+                if (input == 99 )
+                {
+                    // Special case to handle main/IR show relay
+                    if (relay_ir_state == RELAY_STATE_MAIN)
+                    {
+                        input = settings.show_relay_main_source;
+                    } else {
+                        input = settings.show_relay_ir_source;
+                    }
+                    cache_panel_relay_states[incoming_msg.panel] = 1;
+                } else {
+                    cache_panel_relay_states[incoming_msg.panel] = 0;
+                }
 
                 // Decrement in/outs by 1 to go from physical 1-40 numbering to zero index 
                 send_video_route(input - 1, output - 1);
@@ -55,8 +79,53 @@ static void input_logic_task(void)
                 break;
             case IN_MSG_TYP_IR_TOGGLE:
                 // IR Button - send command macro to switcher 
+                ESP_LOGI(TAG,"Toggling IR");
 
-                // TODO
+                
+
+                uint8_t new_source = 0; 
+                if (relay_ir_state == RELAY_STATE_MAIN)
+                {
+                    // Switch to IR 
+                    relay_ir_state = RELAY_STATE_IR;
+                    new_source = settings.show_relay_ir_source;
+                    set_ir_button_led(RELAY_STATE_IR);  
+                    set_ir_relay_state(RELAY_STATE_IR);
+                } else {
+                    // Switch to Main
+                    relay_ir_state = RELAY_STATE_MAIN;
+                    new_source = settings.show_relay_main_source;  
+                    set_ir_button_led(RELAY_STATE_MAIN);  
+                    set_ir_relay_state(RELAY_STATE_MAIN);
+                }
+
+                // First identify if we are currently viewing show relay and need to switch 
+                for (uint8_t panel = 0; panel<4; panel++)
+                {   
+                    if( cache_panel_relay_states[panel] == 1)
+                    {
+                        // Then we are currently watching show relay and need to switch
+                        if (relay_ir_state == RELAY_STATE_MAIN)
+                        {
+                            // Decrement in/outs by 1 to go from physical 1-40 numbering to zero index 
+                            send_video_route(settings.show_relay_main_source - 1, settings.routing_panel_destinations[panel] - 1);
+                        } else {
+                            // Decrement in/outs by 1 to go from physical 1-40 numbering to zero index 
+                            send_video_route(settings.show_relay_ir_source - 1, settings.routing_panel_destinations[panel] - 1);
+                        }
+                    }
+                }
+
+                // Also loop through all secondary channels that get main/IR switched
+                for (uint8_t dest = 0; dest<40; dest++)
+                {
+                    if (settings.show_relay_switched_destination_flags[dest] != 0)
+                    {
+                        // Decrement input by 1 to go from physical 1-40 numbering to zero index 
+                        send_video_route(new_source - 1, dest);
+                        vTaskDelay(RELAY_CHANGEOVER_RIPPLE_INTERVAL); 
+                    }
+                }
 
                 break;
             case IN_MSG_TYP_RELAY_STATE:
@@ -84,6 +153,14 @@ static void input_logic_task(void)
                             {
                                 // and it's one of our outputs 
                                 found_button = button + 1; // Got to convert back from zero index to physical button, because 0 = no LED lit
+                                cache_panel_relay_states[panel] = 0;
+                                break;
+                            } 
+                            if ( ((incoming_msg.input + 1) == settings.show_relay_main_source) || ((incoming_msg.input + 1) == settings.show_relay_ir_source) )
+                            {
+                                // It's one of the show relay sources
+                                found_button = button + 1; // Got to convert back from zero index to physical button, because 0 = no LED lit
+                                cache_panel_relay_states[panel] = 1;
                                 break;
                             }
                         }
@@ -95,7 +172,7 @@ static void input_logic_task(void)
                 {
                     set_button_led_state(found_panel,found_button);
                 }
-                
+
                 break;
             default:
                 ESP_LOGW(TAG,"Input message unknown:%i",incoming_msg.type);

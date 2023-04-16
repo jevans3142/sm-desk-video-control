@@ -13,6 +13,7 @@ struct Queued_Ethernet_Message_Struct {
 
 // Definitions of message type for ethernet messages 
 #define ETH_MSG_TYP_ROUTING 0
+#define ETH_MSG_TYP_ROUTEDUMP 1
 
 // Length and number of text buffers for TCP input queue
 #define ETH_TCP_TEXT_RECV_BUFFER_SIZE 1024
@@ -25,5 +26,6 @@ struct Queued_Ethernet_Message_Struct {
 
 void setup_ethernet(uint32_t ip, uint32_t port, QueueHandle_t* input_queue);
 void send_video_route(uint8_t input, uint8_t output);
+void request_route_dump();
 
 #endif  
