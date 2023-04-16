@@ -107,6 +107,22 @@ static void input_logic_task(void)
 
 }
 
+static void local_test_mode(void)
+{
+    // Vegas mode - LED and button test only
+    while (1)
+    {
+        // Do some dumb polling of the buttons to light any up that are selected
+        for (uint8_t panel = 0; panel<4; panel++)
+        {
+                set_button_led_state(panel,get_button_panel_state(panel));
+                set_ir_button_led(get_ir_button_state());
+                vTaskDelay(5);
+        }
+    }
+        
+}
+
 void app_main(void)
 {   
     // Set up input event queue
@@ -122,6 +138,15 @@ void app_main(void)
 
     //Set up local buttons, LEDs, relay outputs and warning lights
     setup_local_io(&input_event_queue);
+
+    vTaskDelay(10); // Wait to see if buttons are being held down
+    // Check to see if we're heading into 'vegas mode' for testing rather than the proper application
+    if ((get_button_panel_state(0) == 1) && (get_button_panel_state(2) == 1))
+    {
+        local_test_mode();
+        return; 
+    }
+
     // Set up ethernet stack and communication with video router
     setup_ethernet(settings.router_ip, settings.router_port, &input_event_queue);
 
