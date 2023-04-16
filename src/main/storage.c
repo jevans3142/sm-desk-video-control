@@ -226,7 +226,7 @@ static esp_err_t read_config_file(const char *path, struct Settings_Struct *sett
             while (commasplit != NULL)
             {
                 // TODO: Check for valid return from atoi? 
-                settings->show_relay_switched_destination_flags[(uint8_t) atoi(commasplit)] = 1;
+                settings->show_relay_switched_destination_flags[(uint8_t) atoi(commasplit) - 1] = 1;
                 commasplit = strtok(NULL, ",");
             }
 
