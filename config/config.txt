@@ -11,19 +11,19 @@
 // ==================
 
 // Button panel 1 (main screen left)
-routing_panel_sources[0] = 99,3,4,8,7,12
+routing_panel_sources[0] = 99,6,5,4,2,3
 routing_panel_destinations[0] = 1
 
 // Button panel 2 (main screen right)
-routing_panel_sources[1] = 99,3,5,8,7,11
+routing_panel_sources[1] = 99,6,5,4,2,3
 routing_panel_destinations[1] = 2
 
 // Button panel 3 (aux screen left)
-routing_panel_sources[2] = 99,3,4,8,7,9
+routing_panel_sources[2] = 99,6,5,4,2,3
 routing_panel_destinations[2] = 3
 
 // Button panel 4 (aux screen right)
-routing_panel_sources[3] = 99,3,5,8,7,10
+routing_panel_sources[3] = 99,6,5,4,2,3
 routing_panel_destinations[3] = 4
 
 
@@ -31,8 +31,8 @@ routing_panel_destinations[3] = 4
 // Controls which sources are the 'main' and 'ir' cameras for the auto-switched outputs
 // Allowed values: 1-40 for sources 1-40 on router
 // ===================
-show_relay_main_source = 1
-show_relay_ir_source = 2 
+show_relay_main_source = 8
+show_relay_ir_source = 7 
 
 
 // Main/IR switched outputs
@@ -46,6 +46,7 @@ show_relay_switched_destination_flags = 25,26,27,28,29,30,31,32
 
 // Router properties
 // IPv4 Address and port
-router_ip = 169.254.237.53
-router_port = 9900
+router_ip = 192.168.11.41
+router_port = 9990
+
 
