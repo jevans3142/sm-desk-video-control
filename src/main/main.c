@@ -42,7 +42,7 @@ static void input_logic_task(void)
     }
 
     set_ir_relay_state(RELAY_STATE_MAIN);
-    
+
     while(1)
     {   
         struct Queued_Input_Message_Struct incoming_msg;
@@ -156,7 +156,7 @@ static void input_logic_task(void)
                                 cache_panel_relay_states[panel] = 0;
                                 break;
                             } 
-                            if ( ((incoming_msg.input + 1) == settings.show_relay_main_source) || ((incoming_msg.input + 1) == settings.show_relay_ir_source) )
+                            if ( (settings.routing_panel_sources[panel][button] == 99) && (((incoming_msg.input + 1) == settings.show_relay_main_source) || ((incoming_msg.input + 1) == settings.show_relay_ir_source)) )
                             {
                                 // It's one of the show relay sources
                                 found_button = button + 1; // Got to convert back from zero index to physical button, because 0 = no LED lit
@@ -213,15 +213,16 @@ void app_main(void)
     // Retrive settings from SD card 
     settings = get_settings();
 
-    //Set up local buttons, LEDs, relay outputs and warning lights
-    setup_local_io(&input_event_queue);
-
     vTaskDelay(10); // Wait to see if buttons are being held down
-    // Check to see if we're heading into 'vegas mode' for testing rather than the proper application
+    //Check to see if we're heading into 'vegas mode' for testing rather than the proper application
     if ((get_button_panel_state(0) == 1) && (get_button_panel_state(2) == 1))
     {
+        //Set up local buttons, LEDs, relay outputs and warning lights
+        setup_local_io(&input_event_queue, pdTRUE);
         local_test_mode();
         return; 
+    } else {
+     setup_local_io(&input_event_queue, pdFALSE);   
     }
 
     // Set up ethernet stack and communication with video router

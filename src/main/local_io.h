@@ -46,7 +46,7 @@ struct Output_Buffer_Struct {
 // How long do we wait when the PSU comes up
 #define PSU_ON_WAIT_TICKS 100
 
-void setup_local_io(QueueHandle_t* input_queue);
+void setup_local_io(QueueHandle_t* input_queue, uint8_t test_mode);
 
 uint8_t get_button_panel_state(u_int8_t panel);
 void set_button_led_state(uint8_t panel, uint8_t value);
