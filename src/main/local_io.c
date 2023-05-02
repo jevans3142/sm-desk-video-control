@@ -32,9 +32,7 @@ struct Input_Buffer_Struct input_state_buffer;     // Raw state of inputs from I
 struct Input_Buffer_Struct input_state_counts;     // Counters for debouncing
 struct Input_Buffer_Struct input_debounced_buffer; // Debounced state
 
-uint8_t board_live_i2c_setup; // Has I2C been setup on this power supply activation
-
-uint8_t test_only; // Are we in test mode/vegas mode? 
+uint8_t board_live_i2c_setup; // Has I2C been setup on this power supply activation 
 
 // I2C commmunication
 // =============================================================================
@@ -260,12 +258,7 @@ static void input_poll_task(void)
                     output_state_buffer_changed_flag = 1;
                     xSemaphoreGive(output_state_buffer_mutex);
                 }
-
-                // If we're in vegas/test mode we need to not do this
-                if (test_only == pdFALSE)
-                {
-                    request_route_dump(); // Ask ethernet module to query the router to check the current output state as we may have been off for a while
-                }
+                request_route_dump(); // Ask ethernet module to query the router to check the current output state as we may have been off for a while
 
                 }
         } else {
@@ -335,7 +328,7 @@ static void buffer_single_write(uint8_t *buffer, uint8_t value, char *label)
 // Setup and zero outputs at poweron
 // =============================================================================
 
-void setup_local_io(QueueHandle_t *input_queue, uint8_t test_mode)
+void setup_local_io(QueueHandle_t *input_queue)
 {
     // Set up mutexes for local buffer of IO state
     output_state_buffer_mutex = xSemaphoreCreateMutex();
@@ -354,8 +347,6 @@ void setup_local_io(QueueHandle_t *input_queue, uint8_t test_mode)
 
     // Set up local pointers to the event queue in the main logic
     input_event_queue_ptr = input_queue;
-
-    test_only = test_mode;
 
     xTaskCreate((TaskFunction_t)input_poll_task, "input_poll_task", 2048, NULL, 5, NULL);
 }

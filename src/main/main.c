@@ -213,20 +213,17 @@ void app_main(void)
     // Retrive settings from SD card 
     settings = get_settings();
 
+    // Set up ethernet stack and communication with video router
+    setup_ethernet(settings.router_ip, settings.router_port, &input_event_queue);
+    setup_local_io(&input_event_queue);  
+
     vTaskDelay(10); // Wait to see if buttons are being held down
     //Check to see if we're heading into 'vegas mode' for testing rather than the proper application
     if ((get_button_panel_state(0) == 1) && (get_button_panel_state(2) == 1))
     {
-        //Set up local buttons, LEDs, relay outputs and warning lights
-        setup_local_io(&input_event_queue, pdTRUE);
         local_test_mode();
         return; 
-    } else {
-     setup_local_io(&input_event_queue, pdFALSE);   
-    }
-
-    // Set up ethernet stack and communication with video router
-    setup_ethernet(settings.router_ip, settings.router_port, &input_event_queue);
+    } 
 
     xTaskCreate( (TaskFunction_t) input_logic_task, "input_logic_task", 2048, NULL, 5, NULL);
 }
