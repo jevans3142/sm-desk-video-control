@@ -112,6 +112,11 @@ static void tcp_client_loop(void)
     addr_family = AF_INET;
     ip_protocol = IPPROTO_IP;
 
+    int keepAlive = 1;
+    int keepIdle = ETH_KEEPALIVE_IDLE;
+    int keepInterval = ETH_KEEPALIVE_INTERVAL;
+    int keepCount = ETH_KEEPALIVE_COUNT;
+
     inet_ntop(AF_INET, &(dest_addr.sin_addr), router_ip_text, INET_ADDRSTRLEN);
 
     while (1) 
@@ -126,6 +131,13 @@ static void tcp_client_loop(void)
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             continue;
         }
+
+        // Set tcp keepalive option
+        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, sizeof(int));
+        setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdle, sizeof(int));
+        setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepInterval, sizeof(int));
+        setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepCount, sizeof(int));
+
         ESP_LOGI(TAG, "Socket created, connecting to %s:%d", router_ip_text, router_port);
 
         int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));

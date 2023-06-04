@@ -19,6 +19,11 @@ struct Queued_Ethernet_Message_Struct {
 #define ETH_TCP_TEXT_RECV_BUFFER_SIZE 1024
 #define ETH_TCP_TEXT_RECV_BUFFER_NUM 16
 
+// TCP socket kepalives
+#define ETH_KEEPALIVE_IDLE 1
+#define ETH_KEEPALIVE_INTERVAL 1
+#define ETH_KEEPALIVE_COUNT 1
+
 // Define state machine for TCP recv task
 #define ETH_TCP_RECV_STATE_UNKNOWN 0 
 #define ETH_TCP_RECV_STATE_WAIT 1 
