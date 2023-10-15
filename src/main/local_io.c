@@ -18,7 +18,7 @@
 static const char *TAG = "local_io";
 
 // Input message queue handle pointer - passed in from main module
-QueueHandle_t *input_event_queue_ptr;
+static QueueHandle_t *input_event_queue_ptr;
 
 // Define internal buffers that hold the 'current' state of the IO expanders
 // When reading and writing to these the buffers are used to reduce I2C bus pileups
@@ -66,7 +66,7 @@ static void expander_write_command(uint8_t address, uint8_t module_register, uin
     i2c_master_write_byte(cmd, module_register, I2C_ACK_CHECK_EN);
     i2c_master_write_byte(cmd, data, I2C_ACK_CHECK_EN);
     i2c_master_stop(cmd);
-    ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_RATE_MS));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_PERIOD_MS));
     i2c_cmd_link_delete(cmd);
 }
 
@@ -80,7 +80,7 @@ static void expander_read_command(uint8_t address, uint8_t module_register, uint
     i2c_master_write_byte(cmd, address << 1 | I2C_READ_BIT, I2C_ACK_CHECK_EN);
     i2c_master_read_byte(cmd, data, I2C_NACK_CHECK_EN);
     i2c_master_stop(cmd);
-    ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_RATE_MS));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(I2C_NUM, cmd, 1000 / portTICK_PERIOD_MS));
     i2c_cmd_link_delete(cmd);
 }
 
@@ -244,11 +244,11 @@ static void input_poll_task(void)
                 // We have already set up the expanders, so do main loop
                 refresh_inputs();
                 refresh_outputs();
-                vTaskDelay(REFRESH_LOOP_TICKS / portTICK_RATE_MS);
+                vTaskDelay(REFRESH_LOOP_TICKS / portTICK_PERIOD_MS);
             } else {
                 // But we haven't set up the expanders yet 
                 ESP_LOGI(TAG, "Setting up I2C expanders");
-                vTaskDelay(PSU_ON_WAIT_TICKS / portTICK_RATE_MS); // Hold to allow PSU to come up properly
+                vTaskDelay(PSU_ON_WAIT_TICKS / portTICK_PERIOD_MS); // Hold to allow PSU to come up properly
                 i2c_init();
                 expander_setup();
                 board_live_i2c_setup = 1;
@@ -270,7 +270,7 @@ static void input_poll_task(void)
                 board_live_i2c_setup = 0;
             }
             
-            vTaskDelay(REFRESH_LOOP_TICKS / portTICK_RATE_MS);
+            vTaskDelay(REFRESH_LOOP_TICKS / portTICK_PERIOD_MS);
         }
     }
 }
@@ -336,7 +336,7 @@ void setup_local_io(QueueHandle_t *input_queue)
 
     // Set up 'board live' input from standard pin - sees if SM desk PSU is active
     gpio_config_t io_conf;
-    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = (1ULL << PIN_BOARD_LIVE);
     io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
@@ -417,9 +417,9 @@ static void ir_relay_set_task(uint8_t value)
         }
 
         buffer_single_write(&output_state_buffer.ir_relay, 1, "IR Relay coil");
-        vTaskDelay(500 / portTICK_RATE_MS);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
         buffer_single_write(&output_state_buffer.ir_relay, 0, "IR Relay coil");
-        vTaskDelay(500 / portTICK_RATE_MS);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 
     vTaskDelete(NULL);

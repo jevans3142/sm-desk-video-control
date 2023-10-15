@@ -33,7 +33,7 @@ QueueHandle_t ethernet_message_output_queue;
 QueueHandle_t ethernet_message_input_queue; 
 
 // Input message queue handle pointer - passed in from main module
-QueueHandle_t *input_event_queue_ptr;
+static QueueHandle_t *input_event_queue_ptr;
 
 // IP and port of router that we're controlling - set in setup function
 uint32_t router_ip;
@@ -138,7 +138,7 @@ static void tcp_client_loop(void)
         setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepInterval, sizeof(int));
         setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepCount, sizeof(int));
 
-        ESP_LOGI(TAG, "Socket created, connecting to %s:%d", router_ip_text, router_port);
+        ESP_LOGI(TAG, "Socket created, connecting to %s:%"PRIu32, router_ip_text, router_port);
 
         int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
         if (err != 0) 
@@ -413,14 +413,15 @@ void setup_ethernet(uint32_t ip, uint32_t port, QueueHandle_t* input_queue)
 
     phy_config.phy_addr = 0;
     phy_config.reset_gpio_num = PIN_PHY_RST;
-    gpio_pad_select_gpio(PIN_PHY_POWER);
-    gpio_set_direction(PIN_PHY_POWER, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_PHY_POWER, 1);
-    vTaskDelay(10 / portTICK_RATE_MS); 
 
-    mac_config.smi_mdc_gpio_num = PIN_PHY_MDC;
-    mac_config.smi_mdio_gpio_num = PIN_PHY_MDIO;
-    esp_eth_mac_t* mac = esp_eth_mac_new_esp32(&mac_config);
+    eth_esp32_emac_config_t esp32_emac_config = ETH_ESP32_EMAC_DEFAULT_CONFIG();
+    esp32_emac_config.smi_mdc_gpio_num = PIN_PHY_MDC;
+    esp32_emac_config.smi_mdio_gpio_num = PIN_PHY_MDIO;
+    esp32_emac_config.clock_config.rmii.clock_mode = EMAC_CLK_OUT;
+    esp32_emac_config.clock_config.rmii.clock_gpio = EMAC_CLK_OUT_180_GPIO;
+
+
+    esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&esp32_emac_config, &mac_config);
     esp_eth_phy_t* phy = esp_eth_phy_new_lan87xx(&phy_config);
 
     esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
