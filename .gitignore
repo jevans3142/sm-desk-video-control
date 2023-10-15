@@ -6,3 +6,6 @@
 
 #Ignore Mac DS store files
 .DS_Store
+
+#Ignore VS code files
+.vscode
