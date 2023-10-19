@@ -25,7 +25,7 @@ Items which can be configured:
 
 
 ## Compilation
-The microcontroller used is an ESP32 on an Olimex ESP32-PoE-ISO board. After standard installation of the esp-idf FreeRTOS toolchain, currently building on v4.4.2 as a stable version with the configuration included in the src folder (ie. when building do not run the idf.py set-target esp32 command as directed in the esp-idf Getting Started instructions to set up the default build config - just go straight to idf.py build)
+The microcontroller used is an ESP32 on an Olimex ESP32-PoE-ISO board. After standard installation of the esp-idf FreeRTOS toolchain, currently building on v5.1.1 as a stable version with the configuration included in the src folder (ie. when building do not run the idf.py set-target esp32 command as directed in the esp-idf Getting Started instructions to set up the default build config - just go straight to idf.py build)
 
 ## Hardware
 
