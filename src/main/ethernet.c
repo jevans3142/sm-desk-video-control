@@ -414,6 +414,18 @@ void setup_ethernet(uint32_t ip, uint32_t port, QueueHandle_t* input_queue)
     phy_config.phy_addr = 0;
     phy_config.reset_gpio_num = PIN_PHY_RST;
 
+    // Power on the PHY
+    gpio_config_t phy_power_conf;
+    phy_power_conf.intr_type = GPIO_INTR_DISABLE;
+    phy_power_conf.mode = GPIO_MODE_OUTPUT;
+    phy_power_conf.pin_bit_mask = (1ULL << PIN_PHY_POWER);
+    phy_power_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    phy_power_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&phy_power_conf);
+    gpio_set_level(PIN_PHY_POWER, 1);
+    
+    vTaskDelay(10 / portTICK_PERIOD_MS); 
+
     eth_esp32_emac_config_t esp32_emac_config = ETH_ESP32_EMAC_DEFAULT_CONFIG();
     esp32_emac_config.smi_mdc_gpio_num = PIN_PHY_MDC;
     esp32_emac_config.smi_mdio_gpio_num = PIN_PHY_MDIO;
