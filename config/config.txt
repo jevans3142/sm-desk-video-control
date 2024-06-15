@@ -34,6 +34,13 @@ routing_panel_destinations[3] = 4
 show_relay_main_source = 8
 show_relay_ir_source = 7 
 
+// USB enables
+// Controls which sources when viewed on any screen should enable the respective USB channel.
+// Allowed values: 1-40 for sources 1-40 on router
+// ===================
+usb_source_a = 6
+usb_source_b = 2 
+
 
 // Main/IR switched outputs
 // Controls which destinations are affected by the main IR button on the SM des

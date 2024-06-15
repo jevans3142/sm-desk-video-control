@@ -1,6 +1,6 @@
 // Storage module
 //-----------------------------------
-
+ 
 #ifndef STORAGE_H_INCLUDED
 #define STORAGE_H_INCLUDED
 
@@ -9,6 +9,8 @@ struct Settings_Struct {
     uint8_t routing_panel_destinations[4]; // Destinations labeled 1-40 for each panel
     uint8_t show_relay_main_source; // Source labelled 1-40
     uint8_t show_relay_ir_source; // Source labelled 1-40
+    uint8_t usb_source_a; // Source labelled 1-40
+    uint8_t usb_source_b; // Source labelled 1-40
     uint8_t show_relay_switched_destination_flags[40]; // Bool for each destination that requires main/ir switching
     uint32_t router_ip;
     uint32_t router_port;

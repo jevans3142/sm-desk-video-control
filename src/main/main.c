@@ -29,6 +29,13 @@ u_int8_t relay_ir_state = RELAY_STATE_MAIN;
 // This holds a 'cache' state of if a button panel is currently viewing show relay and therefore if we need to do a main/IR switch for it
 u_int8_t cache_panel_relay_states[4];
 
+// USB enable state
+// Cache of actual routing for each panel, used only for USB enables not LEDs
+u_int8_t cache_panel_routing[4];
+// Cache of state
+u_int8_t usb_enable_a_state;
+u_int8_t usb_enable_b_state;
+
 static const char *TAG = "main";
 
 static void input_logic_task(void)
@@ -39,9 +46,15 @@ static void input_logic_task(void)
     for (uint8_t panel = 0; panel<4; panel++)
     {   
         cache_panel_relay_states[panel] = 0;
+        cache_panel_routing[panel] = 0;
     }
+    usb_enable_a_state = 0;
+    usb_enable_b_state = 0;
 
     set_ir_relay_state(RELAY_STATE_MAIN);
+
+    set_usb_enable_a(usb_enable_a_state);
+    set_usb_enable_b(usb_enable_b_state);
 
     while(1)
     {   
@@ -139,7 +152,7 @@ static void input_logic_task(void)
                 ESP_LOGI(TAG,"Processing routing confirm message");
                 // Work out if the incoming routing confirm applies to any of our screens
                 u_int8_t found_panel = 255; // Hacky hack hack - use 255 as a 'not found' flag
-                u_int8_t found_button = 0;
+                u_int8_t found_button = 0; 
                 // Increment in/outs by 1 to go from zero index to physical 1-40 numbering 
                 for (uint8_t panel = 0; panel<4; panel++)
                 {
@@ -154,6 +167,7 @@ static void input_logic_task(void)
                                 // and it's one of our outputs 
                                 found_button = button + 1; // Got to convert back from zero index to physical button, because 0 = no LED lit
                                 cache_panel_relay_states[panel] = 0;
+                                cache_panel_routing[panel] = incoming_msg.input + 1;
                                 break;
                             } 
                             if ( (settings.routing_panel_sources[panel][button] == 99) && (((incoming_msg.input + 1) == settings.show_relay_main_source) || ((incoming_msg.input + 1) == settings.show_relay_ir_source)) )
@@ -161,6 +175,7 @@ static void input_logic_task(void)
                                 // It's one of the show relay sources
                                 found_button = button + 1; // Got to convert back from zero index to physical button, because 0 = no LED lit
                                 cache_panel_relay_states[panel] = 1;
+                                cache_panel_routing[panel] = incoming_msg.input + 1;
                                 break;
                             }
                         }
@@ -170,7 +185,35 @@ static void input_logic_task(void)
 
                 if (found_panel != 255)
                 {
+                    // This means we have a confirmed routing change to one of our screens
                     set_button_led_state(found_panel,found_button);
+                    ESP_LOGI(TAG, "Cache of routing state: %i,%i,%i,%i", cache_panel_routing[0], cache_panel_routing[1], cache_panel_routing[2], cache_panel_routing[3]);
+                    
+                    // Now work out what USB enable state should be 
+                    uint8_t new_a_state = 0; 
+                    uint8_t new_b_state = 0;
+                    for (uint8_t panel = 0; panel<4; panel++)
+                    {   
+                        if (cache_panel_routing[panel] == settings.usb_source_a)
+                        {
+                            new_a_state = 1;
+                        }
+                        if (cache_panel_routing[panel] == settings.usb_source_b)
+                        {
+                            new_b_state = 1;
+                        }
+                    }
+                    if (new_a_state != usb_enable_a_state)
+                    {
+                        usb_enable_a_state = new_a_state;
+                        set_usb_enable_a(usb_enable_a_state);
+                    }
+                    if (new_b_state != usb_enable_b_state)
+                    {
+                        usb_enable_b_state = new_b_state;
+                        set_usb_enable_b(usb_enable_b_state);
+                    }
+
                 }
 
                 break;

@@ -23,6 +23,14 @@ Controls which sources are the 'main' and 'ir' cameras for the auto-switched out
 | show_relay_main_source | Single number |
 | show_relay_ir_source  | Single number  |
 
+### USB enables
+Controls which sources when viewed on any screen should enable the respective USB channel. Allowed values: 1-40 for sources are inputs 1-40 on router
+
+| Variable name  | Format |
+| ------------- | ------------- |
+| usb_source_a | Single number |
+| usb_source_b  | Single number  |
+
 ### Main/IR switched outputs
 Controls which destinations are affected by the main IR button on the SM desk ie. which outputs on the router are main/IR show relay outputs.
 NB: Should not include the SM desk screen outputs above - only other screens.

@@ -214,6 +214,46 @@ static esp_err_t read_config_file(const char *path, struct Settings_Struct *sett
             continue;
         }
 
+        // USB enable sources
+        if (strncmp(equalssplit, "usb_source_a", strlen("usb_source_a")) == 0)
+        {   
+            // Show relay main source
+            equalssplit = strtok(NULL, "="); // Get the post equals sign bits
+
+            if (equalssplit == NULL)
+            {
+                // Check that we haven't run out of number due to a formatting error in the config file...
+                ESP_LOGW(TAG, "Formatting error in usb source a value");
+                continue;
+            }
+
+            // TODO: Check for valid return from atoi? 
+            settings->usb_source_a = (uint8_t) atoi(equalssplit);
+
+            ESP_LOGI(TAG,"Read in usb source a value");
+            continue;
+        }
+
+        if (strncmp(equalssplit, "usb_source_b", strlen("usb_source_b")) == 0)
+        {   
+            // Show relay main source
+            equalssplit = strtok(NULL, "="); // Get the post equals sign bits
+
+            if (equalssplit == NULL)
+            {
+                // Check that we haven't run out of number due to a formatting error in the config file...
+                ESP_LOGW(TAG, "Formatting error in usb source b value");
+                continue;
+            }
+
+            // TODO: Check for valid return from atoi? 
+            settings->usb_source_b = (uint8_t) atoi(equalssplit);
+
+            ESP_LOGI(TAG,"Read in usb source b value");
+            continue;
+        }
+
+
         // Show relay switched outputs
         if (strncmp(equalssplit, "show_relay_switched_destination_flags", strlen("show_relay_switched_destination_flags")) == 0)
         {   
@@ -306,6 +346,9 @@ struct Settings_Struct get_settings(void)
     }
     base_settings.show_relay_main_source = 1;
     base_settings.show_relay_ir_source = 2; 
+    
+    base_settings.usb_source_a = 3;
+    base_settings.usb_source_b = 4; 
 
     for (uint8_t dest = 0; dest<40; dest++)
     {
