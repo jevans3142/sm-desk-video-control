@@ -99,9 +99,14 @@ static void ethernet_event_handler(void* arg, esp_event_base_t event_base, int32
 
 static void tcp_client_loop(void)
 {
-    char rx_buffer[ETH_TCP_TEXT_RECV_BUFFER_SIZE];
+    static char rx_buffer[ETH_TCP_TEXT_RECV_BUFFER_SIZE];
+    static char next_message_buffer[ETH_TCP_TEXT_RECV_QUEUE_SIZE];
     int addr_family = 0;
     int ip_protocol = 0;
+
+    int partial_line_buffer_bytes = 0;
+    char partial_line_buffer[ETH_TCP_TEXT_RECV_BUFFER_SIZE];
+    memset(partial_line_buffer, '\0', sizeof(partial_line_buffer));
 
     struct sockaddr_in dest_addr;
     struct in_addr sin_ip;
@@ -224,11 +229,46 @@ static void tcp_client_loop(void)
                 }
             } else {
                 // Data received
-                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+                rx_buffer[len] = '\0'; // Null-terminate whatever we received
                 ESP_LOGI(TAG, "Received %d bytes:", len);
                 ESP_LOGI(TAG, "%s", rx_buffer);
+                int start_point_this_rx = 0;
+
+                // First wipe the buffer where we are assembling the next block to send to tcp_recv_task
+                memset(next_message_buffer, '\0', sizeof(next_message_buffer));
+
+                // Then copy the parts we had left over from the last block/loop into it, if any
+                if (partial_line_buffer_bytes>0) 
+                {
+                    ESP_LOGI(TAG, "Copied in from previous block: %s", partial_line_buffer);
+                    memcpy(next_message_buffer, partial_line_buffer, partial_line_buffer_bytes);
+                    start_point_this_rx = partial_line_buffer_bytes;
+                    partial_line_buffer_bytes = 0;
+                    memset(partial_line_buffer, '\0', sizeof(partial_line_buffer));
+                }
+
+                // Find the index of the last newline in the incoming rx data
+                int last_newline = 0;
+                for (int i=0; i < len; i++) {
+                    if(rx_buffer[i] == '\n')
+                    {
+                        last_newline = i;
+                    }
+                }
+                // Copy everything after that newline to the partial buffer, if any chars left
+                if (last_newline>0 && (len - last_newline) > 1) 
+                {
+                    memcpy(partial_line_buffer, (void *) ( rx_buffer + last_newline + 1), (len - last_newline - 1));
+                    partial_line_buffer_bytes = (len - last_newline - 1);
+                    ESP_LOGI(TAG, "Copying to next buffer %d bytes: %s", partial_line_buffer_bytes, partial_line_buffer);
+                }
+
+                // Copy everything before that newline to the next message buffer 
+                memcpy((void *)(next_message_buffer + start_point_this_rx), rx_buffer, (last_newline + 1));
+
+                // Send the next message buffer
                 ethernet_warning_off();
-                if (xQueueSend(ethernet_message_input_queue, (void *)&rx_buffer, 1) == pdTRUE)
+                if (xQueueSend(ethernet_message_input_queue, (void *)&next_message_buffer, 1) == pdTRUE)
                 {
                     ESP_LOGI(TAG, "Sending message from recv to process logic");
                 }
@@ -262,7 +302,7 @@ static void tcp_recv_task(void)
 
     while(1)
     {   
-        char incoming_msg[ETH_TCP_TEXT_RECV_BUFFER_SIZE];
+        static char incoming_msg[ETH_TCP_TEXT_RECV_BUFFER_SIZE];
         if (xQueueReceive(ethernet_message_input_queue, &incoming_msg, (TickType_t) portMAX_DELAY) == pdTRUE)
         {
             // Message recieved from queue
@@ -387,13 +427,13 @@ void setup_ethernet(uint32_t ip, uint32_t port, QueueHandle_t* input_queue)
     }
 
     // Set up input message queue
-    ethernet_message_input_queue = xQueueCreate (ETH_TCP_TEXT_RECV_BUFFER_NUM, ETH_TCP_TEXT_RECV_BUFFER_SIZE * (sizeof(char))); 
+    ethernet_message_input_queue = xQueueCreate (ETH_TCP_TEXT_RECV_QUEUE_NUM, ETH_TCP_TEXT_RECV_QUEUE_SIZE * (sizeof(char))); 
     if (ethernet_message_input_queue == NULL)
     {
         ESP_LOGE(TAG,"Unable to create ethernet input message queue, rebooting");
         esp_restart();
     }
-    xTaskCreate( (TaskFunction_t) tcp_recv_task, "tcp_recv_task", 4096, NULL, 5, NULL);
+    xTaskCreate( (TaskFunction_t) tcp_recv_task, "tcp_recv_task", 8192, NULL, 5, NULL);
 
     // Set up local pointers to the event queue in the main logic
     input_event_queue_ptr = input_queue;
