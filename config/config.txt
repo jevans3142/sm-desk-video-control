@@ -38,8 +38,8 @@ show_relay_ir_source = 7
 // Controls which sources when viewed on any screen should enable the respective USB channel.
 // Allowed values: 1-40 for sources 1-40 on router
 // ===================
-usb_source_a = 6
-usb_source_b = 2 
+usb_source_a = 2
+usb_source_b = 3 
 
 
 // Main/IR switched outputs

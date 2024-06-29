@@ -207,11 +207,13 @@ static void input_logic_task(void)
                     {
                         usb_enable_a_state = new_a_state;
                         set_usb_enable_a(usb_enable_a_state);
+                        ESP_LOGI(TAG, "USB A enable set to %d",usb_enable_a_state);
                     }
                     if (new_b_state != usb_enable_b_state)
                     {
                         usb_enable_b_state = new_b_state;
                         set_usb_enable_b(usb_enable_b_state);
+                        ESP_LOGI(TAG, "USB B enable set to %d",usb_enable_b_state);
                     }
 
                 }
