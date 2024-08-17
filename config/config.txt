@@ -48,7 +48,7 @@ usb_source_b = 3
 // NB: Should not include the SM desk screen outputs above - only other screens
 // Allowed values: list of destionations 1-40
 // ==================
-show_relay_switched_destination_flags = 25,26,27,28,29,30,31,32
+show_relay_switched_destination_flags = 13,14,25,26,27,28,29,30,31,32
 
 
 // Router properties
